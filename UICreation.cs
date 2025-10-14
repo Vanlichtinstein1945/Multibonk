@@ -3,6 +3,7 @@ using Il2Cpp;
 using UnityEngine.UI;
 using UnityEngine.Events;
 using Il2CppTMPro;
+using Il2CppAssets.Scripts._Data.MapsAndStages;
 
 namespace Multibonk
 {
@@ -138,7 +139,7 @@ namespace Multibonk
                 // FOR TESTING, SETTING DEFAULT MAP PARAMS HERE
                 CharacterMenu.selectedCharacter = GameData.ECharacter;
                 GameData.MapTierIndex = 0;
-                GameData.MapData = Caches.MapDataCache.GetByName("MapForest");
+                GameData.MapData = DataManager.Instance.GetMap(EMap.Forest);
                 GameData.StageData = GameData.MapData.stages[GameData.MapTierIndex];
                 GameData.ChallengeData = null;
                 GameData.MusicIndex = -1;

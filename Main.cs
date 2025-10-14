@@ -62,43 +62,6 @@ namespace Multibonk
                 return;
             GameData.runConfig = mapSelectors.runConfig;
 
-            var stages = Object.FindObjectsOfType<MapEntry>(true);
-            if (stages == null || stages.Length == 0)
-            {
-                MelonLogger.Error("No game objects of type MapEntry found!");
-                return;
-            }
-
-            foreach (var stage in stages)
-            {
-                MapData md = stage.mapData;
-                if (md == null) continue;
-
-                Caches.MapDataCache.Put(md.name, md);
-            }
-
-            var ui = GameObject.Find("UI");
-            if (Helpers.ErrorIfNull(ui, "No UI game object found!"))
-                return;
-
-            ui.GetComponent<MainMenu>().GoToCharacterSelection();
-            ui.GetComponent<MainMenu>().GoToMenu();
-
-            var characters = Object.FindObjectsOfType<MyButtonCharacter>(true);
-            if (characters == null || characters.Length == 0)
-            {
-                MelonLogger.Error("No game objects of type MyCharacterButton found!");
-                return;
-            }
-
-            foreach (var character in characters)
-            {
-                var cData = character.characterData;
-                if (cData == null) continue;
-
-                Caches.CharacterDataCache.Put(cData.eCharacter, cData);
-            }
-
             bHasCached = true;
         }
     }
