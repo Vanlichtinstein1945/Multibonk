@@ -1,0 +1,83 @@
+# ===== MelonLoader / Game Files =====
+MelonLoader/
+Mods/
+UserData/
+Logs/
+Plugins/
+Cache/
+*.ml.dll
+*.dll.config
+*.pdb
+
+# Prevent accidental game files from being committed
+/GameData/
+/Managed/
+/Il2CppData/
+/BepInEx/
+/doorstop_config.ini
+/version.dll
+/UnityCrashHandler64.exe
+/*.exe
+/*.bat
+
+# ===== Build Artifacts =====
+bin/
+obj/
+[Bb]uild/
+[Ll]ogs/
+*.log
+*.tmp
+*.cache
+*.user
+*.suo
+*.userprefs
+*.csproj.user
+*.pidb
+*.svd
+
+# ===== IDEs =====
+# Visual Studio
+.vs/
+*.userosscache
+*.sln.docstates
+
+# JetBrains Rider
+.idea/
+*.iml
+
+# VSCode
+.vscode/
+
+# ===== Packages / NuGet =====
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+*.nuget.props
+*.nuget.targets
+
+# ===== Unity (if you're using a Unity project for reference) =====
+Library/
+Temp/
+Obj/
+Logs/
+MemoryCaptures/
+Build/
+Builds/
+UserSettings/
+*.unitypackage
+*.prefab
+*.meta
+*.asset
+*.unity
+*.pidb
+
+# ===== OS Files =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Misc =====
+*.bak
+*.orig
+*.rej
