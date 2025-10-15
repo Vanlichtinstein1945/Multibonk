@@ -1,9 +1,8 @@
-﻿using UnityEngine;
-using Il2Cpp;
-using UnityEngine.UI;
-using UnityEngine.Events;
-using Il2CppTMPro;
+﻿using Il2Cpp;
 using Il2CppAssets.Scripts._Data.MapsAndStages;
+using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.UI;
 
 namespace Multibonk
 {
@@ -14,14 +13,15 @@ namespace Multibonk
         public static void CreateMultiplayerMenus()
         {
             var ui = GameObject.Find("UI");
-            if (Helpers.ErrorIfNull(ui, "No UI game object found!"))
-                return;
+            if (Helpers.ErrorIfNull(ui, "No UI game object found!")) return;
             var tabs = ui.transform.Find("Tabs");
-            if (Helpers.ErrorIfNull(tabs, "No Tabs game object found!"))
-                return;
+            if (Helpers.ErrorIfNull(tabs, "No Tabs game object found!")) return;
             var menu = tabs.Find("Menu");
-            if (Helpers.ErrorIfNull(menu, "No Menu game object found!"))
-                return;
+            if (Helpers.ErrorIfNull(menu, "No Menu game object found!")) return;
+            var buttons = menu.Find("Content/Main/Buttons");
+            if (Helpers.ErrorIfNull(buttons, "No Buttons game object found!")) return;
+            var bPlay = buttons.Find("B_Play");
+            if (Helpers.ErrorIfNull(bPlay, "No B_Play game object found!")) return;
 
             // Creating multiplayer Window
             MultiplayerMenu = Object.Instantiate(menu.gameObject, tabs, false);
@@ -41,64 +41,25 @@ namespace Multibonk
             multiplayerWindow.allButtons.Clear();
             multiplayerWindow.allButtonsHashed.Clear();
 
-            var buttons = menu.Find("Content/Main/Buttons");
-            if (Helpers.ErrorIfNull(buttons, "No Buttons game object found!"))
-                return;
-            var bPlay = buttons.Find("B_Play");
-            if (Helpers.ErrorIfNull(bPlay, "No B_Play game object found!"))
-                return;
+            // Creating list to hold lobby objects to join
 
-            // Creating IP textbox
-            var IPField = new GameObject("IPField");
-            var ipRt = IPField.AddComponent<RectTransform>();
-            var ipIf = IPField.AddComponent<TMP_InputField>();
-            var placeholder = new GameObject("Placeholder");
-            placeholder.transform.SetParent(IPField.transform, false);
-            ipIf.placeholder = placeholder.AddComponent<TextMeshProUGUI>();
-            var textComponent = new GameObject("T_Text");
-            textComponent.transform.SetParent(IPField.transform, false);
-            ipIf.textComponent = textComponent.AddComponent<TextMeshProUGUI>();
-            IPField.transform.SetParent(MultiplayerMenu.transform, false);
-            placeholder.GetComponent<TextMeshProUGUI>().text = "Enter IP Address...";
+            CreateLobbyMenus();
 
-            // Creating join button
-            var joinButtonOnClick = (UnityAction)(() =>
-            {
-                Networking.Instance.StartClient(GameData.ServerIP);
-            });
-            var joinButton = Helpers.CreateButtonFromExample(bPlay.gameObject, MultiplayerMenu.transform, "B_Join", "Join", joinButtonOnClick);
-            multiplayerWindow.allButtons.Add(joinButton.GetComponent<MyButton>());
-            multiplayerWindow.allButtonsHashed.Add(joinButton);
-            multiplayerWindow.startBtn = joinButton.GetComponent<MyButton>();
-
-            // Creating lobby Window
-            var lobbyMenu = Object.Instantiate(menu.gameObject, tabs, false);
-            lobbyMenu.name = "LobbyMenu";
-            lobbyMenu.SetActive(false);
-            Object.Destroy(lobbyMenu.GetComponent<MenuAlerts>());
-            Helpers.DestroyAllChildren(lobbyMenu.transform);
-            var lmVLG = lobbyMenu.AddComponent<VerticalLayoutGroup>();
-            lmVLG.childControlHeight = false;
-            lmVLG.childControlWidth = false;
-            lmVLG.childForceExpandHeight = false;
-            lmVLG.spacing = 20;
-            lmVLG.childAlignment = TextAnchor.MiddleCenter;
-            lmVLG.padding.top = 200;
+            var lobbyMenu = tabs.Find("LobbyMenu");
+            if (Helpers.ErrorIfNull(lobbyMenu, "No LobbyMenu game object found!")) return;
             var lobbyWindow = lobbyMenu.GetComponent<Window>();
-            lobbyWindow.isFocused = false;
-            lobbyWindow.allButtons.Clear();
-            lobbyWindow.allButtonsHashed.Clear();
 
             // Creating host button
             var hostButtonOnClick = (UnityAction)(() =>
             {
-                Networking.Instance.StartServer();
-                ui.GetComponent<MainMenu>().SetWindow(lobbyMenu);
+                ui.GetComponent<MainMenu>().SetWindow(lobbyMenu.gameObject);
                 lobbyWindow.FocusWindow();
+                LobbyManager.Instance.CreatePublicLobby();
             });
             var hostButton = Helpers.CreateButtonFromExample(bPlay.gameObject, MultiplayerMenu.transform, "B_Host", "Host", hostButtonOnClick);
             multiplayerWindow.allButtons.Add(hostButton.GetComponent<MyButton>());
             multiplayerWindow.allButtonsHashed.Add(hostButton);
+            multiplayerWindow.startBtn = hostButton.GetComponent<MyButton>();
 
             // Creating back button to open the menu Window
             var backButtonOnClick = (UnityAction)(() =>
@@ -127,6 +88,40 @@ namespace Multibonk
                 return;
             int bUnlocksIndex = bUnlocks.GetSiblingIndex();
             multiplayerButton.transform.SetSiblingIndex(bUnlocksIndex);
+        }
+
+        public static void CreateLobbyMenus()
+        {
+            var ui = GameObject.Find("UI");
+            if (Helpers.ErrorIfNull(ui, "No UI game object found!")) return;
+            var tabs = ui.transform.Find("Tabs");
+            if (Helpers.ErrorIfNull(ui, "No Tabs game object found!")) return;
+            var menu = tabs.Find("Menu");
+            if (Helpers.ErrorIfNull(ui, "No Menu game object found!")) return;
+            var multiplayerWindow = tabs.Find("MultiplayerWindow")?.GetComponent<Window>();
+            if (Helpers.ErrorIfNull(ui, "No MultiplayerMenu game object found!")) return;
+            var buttons = menu.Find("Content/Main/Buttons");
+            if (Helpers.ErrorIfNull(buttons, "No Buttons game object found!")) return;
+            var bPlay = buttons.Find("B_Play");
+            if (Helpers.ErrorIfNull(bPlay, "No B_Play game object found!")) return;
+
+            // Creating lobby Window
+            var lobbyMenu = Object.Instantiate(menu.gameObject, tabs, false);
+            lobbyMenu.name = "LobbyMenu";
+            lobbyMenu.SetActive(false);
+            Object.Destroy(lobbyMenu.GetComponent<MenuAlerts>());
+            Helpers.DestroyAllChildren(lobbyMenu.transform);
+            var lmVLG = lobbyMenu.AddComponent<VerticalLayoutGroup>();
+            lmVLG.childControlHeight = false;
+            lmVLG.childControlWidth = false;
+            lmVLG.childForceExpandHeight = false;
+            lmVLG.spacing = 20;
+            lmVLG.childAlignment = TextAnchor.MiddleCenter;
+            lmVLG.padding.top = 200;
+            var lobbyWindow = lobbyMenu.GetComponent<Window>();
+            lobbyWindow.isFocused = false;
+            lobbyWindow.allButtons.Clear();
+            lobbyWindow.allButtonsHashed.Clear();
 
             // Creating list to show lobby members
             // Creating character selection screen
@@ -136,16 +131,26 @@ namespace Multibonk
             // Creating start match button
             var startButtonOnClick = (UnityAction)(() =>
             {
-                // FOR TESTING, SETTING DEFAULT MAP PARAMS HERE
-                CharacterMenu.selectedCharacter = GameData.ECharacter;
+                // FOR TESTING, SETTING DEFAULT MAP/CHARACTER PARAMS HERE
+                GameData.ECharacter = ECharacter.SirOofie;
                 GameData.MapTierIndex = 0;
                 GameData.MapData = DataManager.Instance.GetMap(EMap.Forest);
                 GameData.StageData = GameData.MapData.stages[GameData.MapTierIndex];
                 GameData.ChallengeData = null;
                 GameData.MusicIndex = -1;
-                GameData.Seed = 42069;
+                GameData.Seed = 69420;
 
-                Networking.Instance.SendGameStart();
+                LobbyManager.Instance.SetMyCharacter((int)ECharacter.SirOofie);
+
+                LobbyManager.Instance.HostSetConfig(
+                    eMap: GameData.MapData.eMap,
+                    tierIndex: GameData.MapTierIndex,
+                    challengeNameOrIndex: GameData.ChallengeData?.ToString(),
+                    musicIndex: GameData.MusicIndex,
+                    seed: GameData.Seed
+                );
+
+                LobbyManager.Instance.HostBroadcastStart();
             });
             var startButton = Helpers.CreateButtonFromExample(bPlay.gameObject, lobbyMenu.transform, "B_Start", "Start", startButtonOnClick);
             lobbyWindow.allButtons.Add(startButton.GetComponent<MyButton>());
@@ -155,7 +160,7 @@ namespace Multibonk
             // Creating leave lobby button
             var leaveButtonOnClick = (UnityAction)(() =>
             {
-                Networking.Instance.Stop();
+                LobbyManager.Instance.LeaveLobby();
                 ui.GetComponent<MainMenu>().SetWindow(MultiplayerMenu);
                 multiplayerWindow.FocusWindow();
             });

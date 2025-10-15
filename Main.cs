@@ -1,6 +1,7 @@
 ﻿using MelonLoader;
 using Il2Cpp;
 using Il2CppAssets.Scripts.Game.Other;
+using UnityEngine.SceneManagement;
 using UnityEngine;
 
 [assembly: MelonInfo(typeof(Multibonk.Main), "Multibonk", "0.0.1", "Vanlichtinstein")]
@@ -10,59 +11,73 @@ namespace Multibonk
 {
     public static class GameData
     {
-        // FOR TESTING, SETTING DEFAULT ECHARACTER
-        public static ECharacter ECharacter = ECharacter.SirOofie;
+        public static ECharacter ECharacter;
         public static MapData MapData;
         public static StageData StageData;
         public static int MapTierIndex;
         public static ChallengeData ChallengeData;
         public static int MusicIndex;
         public static int Seed;
-        public static string ServerIP = "127.0.0.1";
-        public static RunConfig runConfig;
+        public static RunConfig RunConfig;
+    }
+
+    public static class Config
+    {
+        public static bool VerboseSteamworks = true;
+        public static bool LogMapObjectsAndPositions = false;
+        public static bool LogRunStartStats = true;
     }
 
     public class Main : MelonMod
     {
-        private bool bHasCached = false;
+        private bool bCached = false;
 
         public override void OnInitializeMelon()
         {
-            Networking.Instance = new Networking();
+            SteamManager.SteamInit();
         }
 
         public override void OnUpdate()
         {
-            Networking.Instance.Update();
+            LobbyManager.Instance.Update();
+            SteamNetworking.Pump();
         }
 
-        public override void OnApplicationQuit()
+        public override void OnDeinitializeMelon()
         {
-            Networking.Instance.Stop();
+            LobbyManager.Shutdown();
         }
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
         {
             if (sceneName == "MainMenu")
             {
-                if (Networking.Instance.IsConnected)
-                    Networking.Instance.Stop();
-
+                LobbyManager.Instance?.LeaveLobby();
                 UICreation.CreateMultiplayerMenus();
 
-                if (!bHasCached)
-                    HarvestDataFromMainMenu();
+                if (!bCached)
+                    GrabRunConfig();
+            }
+            else if (sceneName == "GeneratedMap")
+            {
+                if (Config.LogMapObjectsAndPositions)
+                {
+                    var objects = SceneManager.GetActiveScene().GetRootGameObjects();
+                    MelonLogger.Msg("Printing Objects...");
+                    foreach (var obj in objects)
+                    {
+                        MelonLogger.Msg($"obj: {obj.name} | pos: {obj.transform.position}");
+                    }
+                }
             }
         }
 
-        private void HarvestDataFromMainMenu()
+        private void GrabRunConfig()
         {
-            var mapSelectors = Object.FindObjectOfType<MapSelectionUi>(true);
-            if (Helpers.ErrorIfNull(mapSelectors, "No game object of type MapSelectionUi found!"))
-                return;
-            GameData.runConfig = mapSelectors.runConfig;
-
-            bHasCached = true;
+            var msui = Object.FindObjectOfType<MapSelectionUi>(true);
+            if (Helpers.ErrorIfNull(msui, "No game object of type MapSelectionUi found!")) return;
+            GameData.RunConfig = msui.runConfig;
+            bCached = true;
         }
     }
 }
