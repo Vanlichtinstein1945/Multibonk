@@ -1,9 +1,12 @@
 ﻿using System.Collections.Generic;
+using System.IO;
+using System.Runtime.InteropServices;
 using Il2Cpp;
 using Il2CppAssets.Scripts._Data.MapsAndStages;
 using Il2CppAssets.Scripts.Managers;
 using MelonLoader;
 using Steamworks;
+using UnityEngine;
 
 namespace Multibonk
 {
@@ -14,11 +17,11 @@ namespace Multibonk
             var steamOk = SteamAPI.Init();
             if (!steamOk)
             {
-                MelonLogger.Error("SteamAPI failed to init!");
+                MelonLogger.Error("[STEAM] SteamAPI failed to init!");
                 return;
             }
             if (Config.VerboseSteamworks)
-                MelonLogger.Msg("SteamAPI initialized");
+                MelonLogger.Msg("[STEAM] SteamAPI initialized");
             LobbyManager.Initialize();
         }
     }
@@ -69,7 +72,7 @@ namespace Multibonk
             Instance.SetupCallbacks();
 
             if (Config.VerboseSteamworks)
-                MelonLogger.Msg("LobbyManager initialized");
+                MelonLogger.Msg("[LOBBY] LobbyManager initialized");
         }
 
         public static void Shutdown()
@@ -78,7 +81,9 @@ namespace Multibonk
             Instance = null;
 
             if (Config.VerboseSteamworks)
-                MelonLogger.Msg("LobbyManager cleared");
+                MelonLogger.Msg("[LOBBY] LobbyManager cleared");
+
+            SteamNetworking.Shutdown();
         }
 
         private void Cleanup()
@@ -115,21 +120,21 @@ namespace Multibonk
             SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypePublic, MaxMembers);
 
             if (Config.VerboseSteamworks)
-                MelonLogger.Msg("Creating steam lobby");
+                MelonLogger.Msg("[LOBBY] Creating steam lobby");
         }
 
         private void OnLobbyCreated(LobbyCreated_t cb)
         {
             if (cb.m_eResult != EResult.k_EResultOK)
             {
-                MelonLogger.Warning("Lobby create failed: " + cb.m_eResult);
+                MelonLogger.Warning("[LOBBY] Lobby create failed: " + cb.m_eResult);
                 return;
             }
 
             LobbyID = new CSteamID(cb.m_ulSteamIDLobby);
 
             if (Config.VerboseSteamworks)
-                MelonLogger.Msg("Lobby created: " + LobbyID);
+                MelonLogger.Msg("[LOBBY] Lobby created: " + LobbyID);
 
             SteamMatchmaking.SetLobbyJoinable(LobbyID, true);
             SteamMatchmaking.SetLobbyData(LobbyID, "name", SteamFriends.GetPersonaName() + "'s Lobby");
@@ -157,12 +162,12 @@ namespace Multibonk
         {
             if (bIOFailure)
             {
-                MelonLogger.Warning("Lobby list IO failure");
+                MelonLogger.Warning("[LOBBY] Lobby list IO failure");
                 return;
             }
 
             int count = (int)cb.m_nLobbiesMatching;
-            MelonLogger.Msg("Found lobbies: " + count);
+            MelonLogger.Msg("[LOBBY] Found lobbies: " + count);
 
             for (int i = 0; i < count; i++)
             {
@@ -176,12 +181,12 @@ namespace Multibonk
             SteamMatchmaking.JoinLobby(lobbyID);
 
             if (Config.VerboseSteamworks)
-                MelonLogger.Msg($"Joining lobby: {lobbyID}");
+                MelonLogger.Msg($"[LOBBY] Joining lobby: {lobbyID}");
         }
 
         private void OnGameLobbyJoinRequested(GameLobbyJoinRequested_t cb)
         {
-            MelonLogger.Msg("Invite/Join requested for lobby: " + cb.m_steamIDLobby);
+            MelonLogger.Msg("[LOBBY] Invite/Join requested for lobby: " + cb.m_steamIDLobby);
             JoinLobby(cb.m_steamIDLobby);
         }
 
@@ -190,7 +195,7 @@ namespace Multibonk
             LobbyID = new CSteamID(cb.m_ulSteamIDLobby);
 
             if (Config.VerboseSteamworks)
-                MelonLogger.Msg("Entered lobby: " + LobbyID);
+                MelonLogger.Msg("[LOBBY] Entered lobby: " + LobbyID);
 
             SteamMatchmaking.SetLobbyMemberData(LobbyID, "ready", "0");
 
@@ -198,12 +203,12 @@ namespace Multibonk
             bool isHost = owner == SteamUser.GetSteamID();
 
             if (Config.VerboseSteamworks)
-                MelonLogger.Msg("IsHost: " + isHost);
+                MelonLogger.Msg("[LOBBY] IsHost: " + isHost);
         }
 
         private void OnLobbyChatUpdate(LobbyChatUpdate_t cb)
         {
-            MelonLogger.Msg("Lobby chat update: " + cb.m_ulSteamIDLobby);
+            MelonLogger.Msg("[LOBBY] Lobby chat update: " + cb.m_ulSteamIDLobby);
         }
 
         private void OnLobbyDataUpdate(LobbyDataUpdate_t cb)
@@ -235,7 +240,7 @@ namespace Multibonk
                     string name = SteamMatchmaking.GetLobbyData(lobby, Keys.Name);
                     string ver = SteamMatchmaking.GetLobbyData(lobby, Keys.Ver);
                     string mode = SteamMatchmaking.GetLobbyData(lobby, Keys.Mode);
-                    MelonLogger.Msg($"Lobby data: name=\"{name}\" ver={ver} mode={mode}");
+                    MelonLogger.Msg($"[LOBBY] Lobby data: name=\"{name}\" ver={ver} mode={mode}");
                 }
             }
             else
@@ -245,7 +250,7 @@ namespace Multibonk
                 string charStr = SteamMatchmaking.GetLobbyMemberData(lobby, member, Keys.Char);
 
                 if (Config.VerboseSteamworks)
-                    MelonLogger.Msg($"Member {member} ready={ready} char={charStr}");
+                    MelonLogger.Msg($"[LOBBY] Member {member} ready={ready} char={charStr}");
             }
         }
 
@@ -257,9 +262,11 @@ namespace Multibonk
                 SteamFriends.SetRichPresence("status", "");
 
                 if (Config.VerboseSteamworks)
-                    MelonLogger.Msg($"Left lobby: {LobbyID}");
+                    MelonLogger.Msg($"[LOBBY] Left lobby: {LobbyID}");
 
                 LobbyID = CSteamID.Nil;
+
+                SteamNetworking.Shutdown();
             }
         }
 
@@ -349,8 +356,40 @@ namespace Multibonk
         public static CSteamID HostID;
         public static CSteamID SelfID => SteamUser.GetSteamID();
 
+        private enum Msg : byte { Snapshot = 1 }
+
+        private class RemoteReplica
+        {
+            public GameObject replica;
+            public Animator animator;
+            public Transform posTrans;
+            public Transform rotTrans;
+            public Helpers.AnimBits lastAnim;
+            public Vector3 lastPos;
+            public Vector3 lastEuler;
+        }
+
+        private static Dictionary<CSteamID, RemoteReplica> _replicas = new Dictionary<CSteamID, RemoteReplica>();
+
+        private static Animator _localAnimator;
+        private static Transform _localPosTrans;
+        private static Transform _localRotTrans;
+
+        private static float _sendAccum;
+
+        public static void BindLocal(Animator anim, Transform tf1, Transform tf2)
+        {
+            _localAnimator = anim; _localPosTrans = tf1; _localRotTrans = tf2;
+        }
+
+        public static void BindRemote(CSteamID id, GameObject obj, Animator anim, Transform tf1, Transform tf2)
+        {
+            _replicas[id] = new RemoteReplica { replica = obj, animator = anim, posTrans = tf1, rotTrans = tf2 };
+        }
+
         public static void Init(bool isHost, CSteamID hostID)
         {
+            GameData.IsMultiplayer = true;
             IsHost = isHost;
             HostID = hostID;
 
@@ -359,19 +398,22 @@ namespace Multibonk
             if (IsHost)
             {
                 _listen = SteamNetworkingSockets.CreateListenSocketP2P(Port, 0, null);
-                MelonLogger.Msg($"[NET] Host listening on P2P port {Port}, socket={_listen.m_HSteamListenSocket}");
+                if (Config.VerboseSteamworks)
+                    MelonLogger.Msg($"[NET] Host listening on P2P port {Port}, socket={_listen.m_HSteamListenSocket}");
             }
             else
             {
                 var hostIdent = new SteamNetworkingIdentity();
                 hostIdent.SetSteamID(HostID);
                 _hostConn = SteamNetworkingSockets.ConnectP2P(ref hostIdent, Port, 0, null);
-                MelonLogger.Msg($"[NET] Client connecting to host {HostID} on port {Port} (conn={_hostConn.m_HSteamNetConnection})");
+                if (Config.VerboseSteamworks)
+                    MelonLogger.Msg($"[NET] Client connecting to host {HostID} on port {Port} (conn={_hostConn.m_HSteamNetConnection})");
             }
         }
 
         public static void Shutdown()
         {
+            GameData.IsMultiplayer = false;
             if (IsHost)
             {
                 foreach (var kv in _peers)
@@ -390,7 +432,161 @@ namespace Multibonk
 
         public static void Pump()
         {
+            PumpReceive();
 
+            const float sendHz = 20f;
+            _sendAccum += Time.deltaTime;
+            if (_sendAccum >= 1f / sendHz)
+            {
+                _sendAccum = 0f;
+                TickSend();
+            }
+        }
+
+        private static void TickSend()
+        {
+            if (_localPosTrans == null || _localRotTrans == null) return;
+
+            var pos = _localPosTrans.position;
+            var euler = _localRotTrans.eulerAngles;
+            var bits = Helpers.AnimSync.Build(_localAnimator);
+
+            if (Config.VerboseLocalPlayer)
+            {
+                MelonLogger.Msg($"[NET] Local player pos: x={pos.x} y={pos.y} z={pos.z}");
+                MelonLogger.Msg($"[NET] Local player rot: x={euler.x} y={euler.y} z={euler.z}");
+                MelonLogger.Msg($"[NET] Local player anim: {bits}");
+            }
+
+            short qx = (short)Mathf.Round(pos.x * 100f);
+            short qy = (short)Mathf.Round(pos.y * 100f);
+            short qz = (short)Mathf.Round(pos.z * 100f);
+            short rx = (short)Mathf.Round(euler.x * 100f);
+            short ry = (short)Mathf.Round(euler.y * 100f);
+            short rz = (short)Mathf.Round(euler.z * 100f);
+
+            using var ms = new MemoryStream(32);
+            using var bw = new BinaryWriter(ms);
+            bw.Write((byte)Msg.Snapshot);
+            bw.Write(SelfID.m_SteamID);
+            bw.Write(qx); bw.Write(qy); bw.Write(qz);
+            bw.Write(rx); bw.Write(ry); bw.Write(rz);
+            bw.Write((byte)bits);
+
+            var buf = ms.ToArray();
+            if (IsHost) BroadcastUnreliable(buf, buf.Length);
+            else SendToHostUnreliable(buf, buf.Length);
+        }
+
+        private static void PumpReceive()
+        {
+            const int MAX = 32;
+            var ptrs = new System.IntPtr[MAX];
+
+            if (IsHost)
+            {
+                foreach (var conn in _peers.Keys)
+                {
+                    int n;
+                    while ((n = SteamNetworkingSockets.ReceiveMessagesOnConnection(conn, ptrs, MAX)) > 0)
+                        for (int i = 0; i < n; i++) HandleMsgPtr(conn, ptrs[i]);
+                }
+            }
+            else
+            {
+                if (_hostConn.m_HSteamNetConnection == 0) return;
+                int n;
+                while ((n = SteamNetworkingSockets.ReceiveMessagesOnConnection(_hostConn, ptrs, MAX)) > 0)
+                    for (int i = 0; i < n; i++) HandleMsgPtr(_hostConn, ptrs[i]);
+            }
+        }
+
+        private static void HandleMsgPtr(HSteamNetConnection from, System.IntPtr pMsg)
+        {
+            if (pMsg == System.IntPtr.Zero) return;
+
+            var msg = (SteamNetworkingMessage_t)Marshal.PtrToStructure(pMsg, typeof(SteamNetworkingMessage_t));
+
+            try
+            {
+                byte[] data = null;
+                int len = (int)msg.m_cbSize;
+                if (len > 0 && msg.m_pData != System.IntPtr.Zero)
+                {
+                    data = new byte[len];
+                    Marshal.Copy(msg.m_pData, data, 0, len);
+                }
+
+                HandlePayload(from, data, len);
+            }
+            finally
+            {
+                SteamNetworkingMessage_t.Release(pMsg);
+            }
+        }
+
+        private static void HandlePayload(HSteamNetConnection from, byte[] buf, int len)
+        {
+            if (buf == null || len <= 0) return;
+
+            using var ms = new MemoryStream(buf, 0, len, writable: false);
+            using var br = new BinaryReader(ms);
+
+            var type = (Msg)br.ReadByte();
+            if (type != Msg.Snapshot) return;
+
+            ulong who = br.ReadUInt64();
+            short qx = br.ReadInt16(), qy = br.ReadInt16(), qz = br.ReadInt16();
+            short rx = br.ReadInt16(), ry = br.ReadInt16(), rz = br.ReadInt16();
+            var bits = (Helpers.AnimBits)br.ReadByte();
+
+            var id = new CSteamID(who);
+
+            if (IsHost)
+                foreach (var kv in _peers)
+                    if (kv.Key.m_HSteamNetConnection != from.m_HSteamNetConnection)
+                        SendUnreliable(kv.Key, buf, len);
+
+            ApplySnapshot(id, qx, qy, qz, rx, ry, rz, bits);
+        }
+
+        private static void SendUnreliable(HSteamNetConnection conn, byte[] buf, int len)
+        {
+            if (conn.m_HSteamNetConnection == 0 || buf == null || len <= 0) return;
+            var handle = GCHandle.Alloc(buf, GCHandleType.Pinned);
+            try
+            {
+                System.IntPtr ptr = handle.AddrOfPinnedObject();
+                SteamNetworkingSockets.SendMessageToConnection(conn, ptr, (uint)len, 0, out long _);
+            }
+            finally { handle.Free(); }
+        }
+
+        private static void BroadcastUnreliable(byte[] buf, int len)
+        {
+            foreach (var kv in _peers) SendUnreliable(kv.Key, buf, len);
+        }
+
+        private static void SendToHostUnreliable(byte[] buf, int len)
+        {
+            if (_hostConn.m_HSteamNetConnection != 0) SendUnreliable(_hostConn, buf, len);
+        }
+
+        private static void ApplySnapshot(CSteamID id, short qx, short qy, short qz,
+                                          short rx, short ry, short rz, Helpers.AnimBits bits)
+        {
+            if (!_replicas.TryGetValue(id, out var rep) || rep.posTrans == null || rep.rotTrans == null) return;
+
+            var pos = new Vector3(qx / 100f, qy / 100f, qz / 100f);
+            var euler = new Vector3(rx / 100f, ry / 100f, rz / 100f);
+
+            rep.posTrans.position = pos;
+            rep.rotTrans.eulerAngles = euler;
+            Helpers.AnimSync.Apply(rep.animator, bits);
+
+            rep.lastPos = pos;
+            rep.lastEuler = euler;
+            rep.lastAnim = bits;
         }
 
         private static void OnConnStatus(SteamNetConnectionStatusChangedCallback_t cb)
@@ -411,19 +607,34 @@ namespace Multibonk
                         SteamNetworkingSockets.AcceptConnection(cb.m_hConn);
                         SteamNetworkingSockets.SetConnectionName(cb.m_hConn, id.m_SteamID.ToString());
                         _peers[cb.m_hConn] = id;
-                        MelonLogger.Msg($"[NET] Host accepted {id}");
+                        if (Config.VerboseSteamworks)
+                            MelonLogger.Msg($"[NET] Host accepted {id}");
                     }
                     break;
 
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_Connected:
-                    MelonLogger.Msg(IsHost
-                        ? $"[NET] Peer connected: {_peers[cb.m_hConn]}"
-                        : $"[NET] Connected to host {HostID}");
+                    if (Config.VerboseSteamworks)
+                        MelonLogger.Msg(IsHost
+                            ? $"[NET] Peer connected: {_peers[cb.m_hConn]}"
+                            : $"[NET] Connected to host {HostID}");
                     break;
 
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ClosedByPeer:
                 case ESteamNetworkingConnectionState.k_ESteamNetworkingConnectionState_ProblemDetectedLocally:
-                    if (IsHost) _peers.Remove(cb.m_hConn);
+                    if (IsHost)
+                    {
+                        if (_peers.TryGetValue(cb.m_hConn, out var steamID))
+                        {
+                            if (_replicas.TryGetValue(steamID, out var replica) && replica.replica)
+                            {
+                                Object.Destroy(replica.replica);
+                            }
+                            _replicas.Remove(steamID);
+                            _peers.Remove(cb.m_hConn);
+                            if (Config.VerboseSteamworks)
+                                MelonLogger.Msg($"[NET] Peer {steamID} disconnected; destroyed renderer.");
+                        }
+                    }
                     break;
             }
         }

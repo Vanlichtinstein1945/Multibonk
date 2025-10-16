@@ -13,15 +13,15 @@ namespace Multibonk
         public static void CreateMultiplayerMenus()
         {
             var ui = GameObject.Find("UI");
-            if (Helpers.ErrorIfNull(ui, "No UI game object found!")) return;
+            if (Helpers.ErrorIfNull(ui, "[UI] No UI game object found!")) return;
             var tabs = ui.transform.Find("Tabs");
-            if (Helpers.ErrorIfNull(tabs, "No Tabs game object found!")) return;
+            if (Helpers.ErrorIfNull(tabs, "[UI] No Tabs game object found!")) return;
             var menu = tabs.Find("Menu");
-            if (Helpers.ErrorIfNull(menu, "No Menu game object found!")) return;
+            if (Helpers.ErrorIfNull(menu, "[UI] No Menu game object found!")) return;
             var buttons = menu.Find("Content/Main/Buttons");
-            if (Helpers.ErrorIfNull(buttons, "No Buttons game object found!")) return;
+            if (Helpers.ErrorIfNull(buttons, "[UI] No Buttons game object found!")) return;
             var bPlay = buttons.Find("B_Play");
-            if (Helpers.ErrorIfNull(bPlay, "No B_Play game object found!")) return;
+            if (Helpers.ErrorIfNull(bPlay, "[UI] No B_Play game object found!")) return;
 
             // Creating multiplayer Window
             MultiplayerMenu = Object.Instantiate(menu.gameObject, tabs, false);
@@ -46,7 +46,7 @@ namespace Multibonk
             CreateLobbyMenus();
 
             var lobbyMenu = tabs.Find("LobbyMenu");
-            if (Helpers.ErrorIfNull(lobbyMenu, "No LobbyMenu game object found!")) return;
+            if (Helpers.ErrorIfNull(lobbyMenu, "[UI] No LobbyMenu game object found!")) return;
             var lobbyWindow = lobbyMenu.GetComponent<Window>();
 
             // Creating host button
@@ -84,7 +84,7 @@ namespace Multibonk
 
             // Setting multiplayer button above unlocks button
             var bUnlocks = buttons.Find("B_Unlocks");
-            if (Helpers.ErrorIfNull(bUnlocks, "No B_Unlocks game object found!"))
+            if (Helpers.ErrorIfNull(bUnlocks, "[UI] No B_Unlocks game object found!"))
                 return;
             int bUnlocksIndex = bUnlocks.GetSiblingIndex();
             multiplayerButton.transform.SetSiblingIndex(bUnlocksIndex);
@@ -93,17 +93,17 @@ namespace Multibonk
         public static void CreateLobbyMenus()
         {
             var ui = GameObject.Find("UI");
-            if (Helpers.ErrorIfNull(ui, "No UI game object found!")) return;
+            if (Helpers.ErrorIfNull(ui, "[UI] No UI game object found!")) return;
             var tabs = ui.transform.Find("Tabs");
-            if (Helpers.ErrorIfNull(ui, "No Tabs game object found!")) return;
+            if (Helpers.ErrorIfNull(ui, "[UI] No Tabs game object found!")) return;
             var menu = tabs.Find("Menu");
-            if (Helpers.ErrorIfNull(ui, "No Menu game object found!")) return;
+            if (Helpers.ErrorIfNull(ui, "[UI] No Menu game object found!")) return;
             var multiplayerWindow = tabs.Find("MultiplayerWindow")?.GetComponent<Window>();
-            if (Helpers.ErrorIfNull(ui, "No MultiplayerMenu game object found!")) return;
+            if (Helpers.ErrorIfNull(ui, "[UI] No MultiplayerMenu game object found!")) return;
             var buttons = menu.Find("Content/Main/Buttons");
-            if (Helpers.ErrorIfNull(buttons, "No Buttons game object found!")) return;
+            if (Helpers.ErrorIfNull(buttons, "[UI] No Buttons game object found!")) return;
             var bPlay = buttons.Find("B_Play");
-            if (Helpers.ErrorIfNull(bPlay, "No B_Play game object found!")) return;
+            if (Helpers.ErrorIfNull(bPlay, "[UI] No B_Play game object found!")) return;
 
             // Creating lobby Window
             var lobbyMenu = Object.Instantiate(menu.gameObject, tabs, false);

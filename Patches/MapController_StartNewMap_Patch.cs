@@ -13,6 +13,8 @@ namespace Multibonk.Patches
         [HarmonyPrefix]
         static void Prefix(RunConfig newRunConfig)
         {
+            if (!GameData.IsMultiplayer) return;
+
             newRunConfig.mapData = GameData.MapData;
             newRunConfig.stageData = GameData.StageData;
             newRunConfig.mapTierIndex = GameData.MapTierIndex;
@@ -26,7 +28,7 @@ namespace Multibonk.Patches
             MyRandom.random = new ConsistentRandom(GameData.Seed);
 
             if (Config.LogRunStartStats)
-                MelonLogger.Msg($"Starting run mapData={GameData.MapData.eMap} stageData={GameData.StageData.name} mapTierIndex={GameData.MapTierIndex} challengeData={GameData.ChallengeData?.name} seed={GameData.Seed} selectedCharacter={GameData.ECharacter}");
+                MelonLogger.Msg($"[SNM Patch] Starting run mapData={GameData.MapData.eMap} stageData={GameData.StageData.name} mapTierIndex={GameData.MapTierIndex} challengeData={GameData.ChallengeData?.name} seed={GameData.Seed} selectedCharacter={GameData.ECharacter}");
         }
     }
 }

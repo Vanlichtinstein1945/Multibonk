@@ -34,7 +34,7 @@ namespace Multibonk
 
         public static GameObject CreateButtonFromExample(GameObject exampleButton, Transform parent, string objectName, string buttonLabel, UnityAction onClick)
         {
-            if (ErrorIfNull(exampleButton, "Example button was null!"))
+            if (ErrorIfNull(exampleButton, "[HELPER] Example button was null!"))
                 return null;
 
             var newButton = Object.Instantiate(exampleButton, parent, false);
@@ -67,6 +67,43 @@ namespace Multibonk
             if (selectable) selectable.OnDeselect(null);
 
             return newButton;
+        }
+
+        public enum AnimBits : byte
+        {
+            None     = 0,
+            Grounded = 1 << 0,
+            Jumping  = 1 << 1,
+            Grinding = 1 << 2,
+            Moving   = 1 << 3,
+        }
+
+        public static class AnimSync
+        {
+            private const string P_Grounded = "grounded";
+            private const string P_Jumping = "jumping";
+            private const string P_Grinding = "grinding";
+            private const string P_Moving = "moving";
+
+            public static AnimBits Build(Animator a)
+            {
+                if (!a) return AnimBits.None;
+                AnimBits bits = AnimBits.None;
+                if (a.GetBool(P_Grounded)) bits |= AnimBits.Grounded;
+                if (a.GetBool(P_Jumping)) bits |= AnimBits.Jumping;
+                if (a.GetBool(P_Grinding)) bits |= AnimBits.Grinding;
+                if (a.GetBool(P_Moving)) bits |= AnimBits.Moving;
+                return bits;
+            }
+
+            public static void Apply(Animator a, AnimBits bits)
+            {
+                if (!a) return;
+                a.SetBool(P_Grounded, (bits & AnimBits.Grounded) != 0);
+                a.SetBool(P_Jumping, (bits & AnimBits.Jumping) != 0);
+                a.SetBool(P_Grinding, (bits & AnimBits.Grinding) != 0);
+                a.SetBool(P_Moving, (bits & AnimBits.Moving) != 0);
+            }
         }
     }
 }
