@@ -4,10 +4,28 @@ using Il2CppAssets.Scripts.Game.Other;
 using UnityEngine.SceneManagement;
 using UnityEngine;
 using System.Collections;
-using Steamworks;
+using Il2CppSteamworks;
+using Multibonk.Networking;
 
 [assembly: MelonInfo(typeof(Multibonk.Main), "Multibonk", "0.0.1", "Vanlichtinstein")]
 [assembly: MelonGame("Ved", "Megabonk")]
+
+// TODO: Look into why steam launch options printed empty when '+connect_lobby 1' was passed
+// TODO: Create a list object to hold public lobbies to click and join off of
+// TODO: Create a list object to show current lobby members in lobby ui
+// TODO: Look into copying and creating a character choice menu in lobby ui
+// TODO: Look into copying and creating a map choice menu for host in lobby ui
+// TODO: Find a way to get references to map genned prefabs
+// TODO: Find a way to grab all genned objects from map and pass to HostBeginInitBarrier
+// TODO: Change spawning remote players to using a copy of the player with .SetCharacter(CharacterData) called
+// TODO: Look into syncing enemies
+// TODO: Look into causing enemies to attract to all, not just local player
+// TODO: Look into syncing weapon attacks
+// TODO: Look into syncing XP and currency
+// TODO: Look into syncing interactables like chests and shrines being used
+// TODO: Look into forcing players to stick together when taking portal to next area
+// TODO: Determine how to react when host or a client dies
+// TODO: Determine how to react if host or a client takes the portal to end game after final boss
 
 namespace Multibonk
 {
@@ -22,14 +40,7 @@ namespace Multibonk
         public static int Seed;
         public static RunConfig RunConfig;
         public static bool IsMultiplayer = false;
-    }
-
-    public static class Config
-    {
-        public static bool VerboseSteamworks = true;
-        public static bool LogMapObjectsAndPositions = false;
-        public static bool LogRunStartStats = false;
-        public static bool VerboseLocalPlayer = false;
+        public static bool IsReady = false;
     }
 
     public class Main : MelonMod
@@ -38,16 +49,28 @@ namespace Multibonk
 
         public override void OnInitializeMelon()
         {
-            SteamManager.SteamInit();
+            Config.Load();
+            if (SteamAPI.RestartAppIfNecessary(new AppId_t(Config.APP_ID)))
+            {
+                Application.Quit();
+                return;
+            }
+            Helpers.SteamInit();
+            Helpers.HandleSteamLaunchInvite();
         }
 
         public override void OnUpdate()
         {
             LobbyManager.Instance?.Update();
-            SteamNetworking.Pump();
+            Networking.SteamNetworking.Pump();
         }
 
         public override void OnDeinitializeMelon()
+        {
+            LobbyManager.Shutdown();
+        }
+
+        public override void OnApplicationQuit()
         {
             LobbyManager.Shutdown();
         }
@@ -56,11 +79,12 @@ namespace Multibonk
         {
             if (sceneName == "MainMenu")
             {
-                LobbyManager.Instance?.LeaveLobby();
-                UICreation.CreateMultiplayerMenus();
-
                 if (!bCached)
                     GrabRunConfig();
+
+                LobbyManager.Instance.LeaveLobby();
+                UICreation.CreateMultiplayerMenus();
+                LobbyManager.TryConsumePendingJoinOnMainMenu();
             }
             else if (sceneName == "GeneratedMap")
             {
@@ -97,41 +121,10 @@ namespace Multibonk
             if (Helpers.ErrorIfNull(anim, "[MAIN] No game object of type Animator found!")) yield break;
             var tf = player.transform.root;
 
-            SteamNetworking.BindLocal(anim, tf, anim.transform);
+            Networking.SteamNetworking.BindLocal(anim, tf, anim.transform);
 
             if (Config.VerboseSteamworks)
                 MelonLogger.Msg("[MAIN] Bound local player to SteamNetworking.");
-
-            var lobby = LobbyManager.Instance?.LobbyID ?? CSteamID.Nil;
-            if (lobby == CSteamID.Nil) yield break;
-
-            int count = SteamMatchmaking.GetNumLobbyMembers(lobby);
-            for (int i = 0; i < count; i++)
-            {
-                var id = SteamMatchmaking.GetLobbyMemberByIndex(lobby, i);
-                if (id == SteamUser.GetSteamID()) continue;
-
-                var s = SteamMatchmaking.GetLobbyMemberData(lobby, id, "char");
-                int.TryParse(s, out var eInt);
-                var who = (ECharacter)eInt;
-
-                var charData = DataManager.Instance.GetCharacterData(who);
-                if (charData == null || charData.prefab == null)
-                {
-                    MelonLogger.Error($"[MAIN] Missing prefab for {who}");
-                    continue;
-                }
-
-                var root = new GameObject("$Remote_{id.m_SteamID}");
-                if (root == null) continue;
-                var go = Object.Instantiate(charData.prefab, root.transform, false);
-                if (go == null) continue;
-
-                var rAnim = go.GetComponent<Animator>();
-                var rTf = go.transform;
-
-                SteamNetworking.BindRemote(id, root, rAnim, root.transform, rTf);
-            }
         }
     }
 }

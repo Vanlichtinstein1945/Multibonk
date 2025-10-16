@@ -5,11 +5,54 @@ using Il2CppTMPro;
 using UnityEngine.Localization.Components;
 using UnityEngine.UI;
 using Il2Cpp;
+using Steamworks;
 
 namespace Multibonk
 {
     class Helpers
     {
+        public static void HandleSteamLaunchInvite()
+        {
+            if (SteamApps.GetLaunchCommandLine(out string cmdLine, 8192) > 0)
+            {
+                if (Config.VerboseSteamworks)
+                    MelonLogger.Msg($"[STEAM] Launch command line: {cmdLine}");
+
+                var parts = cmdLine.Split(' ');
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    if (parts[i].Equals("+connect_lobby", System.StringComparison.OrdinalIgnoreCase)
+                        && i + 1 < parts.Length)
+                    {
+                        if (ulong.TryParse(parts[i + 1], out var lobbyId64))
+                        {
+                            CSteamID lobbyID = new CSteamID(lobbyId64);
+                            if (Config.VerboseSteamworks)
+                                MelonLogger.Msg($"[STEAM] Detected launch invite to lobby {lobbyID}");
+                            Networking.LobbyManager.PendingLobbyJoin = lobbyID;
+                            Networking.LobbyManager.PendingOpenLobbyUI = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void SteamInit()
+        {
+            var steamOk = SteamAPI.Init();
+
+            if (!steamOk)
+            {
+                MelonLogger.Error("[STEAM] SteamAPI failed to init!");
+                return;
+            }
+
+            if (Config.VerboseSteamworks)
+                MelonLogger.Msg("[STEAM] SteamAPI initialized");
+
+            Networking.LobbyManager.Initialize();
+        }
+
         public static bool ErrorIfNull<T>(T item, string errorMessage)
         {
             if (item == null)
@@ -34,8 +77,7 @@ namespace Multibonk
 
         public static GameObject CreateButtonFromExample(GameObject exampleButton, Transform parent, string objectName, string buttonLabel, UnityAction onClick)
         {
-            if (ErrorIfNull(exampleButton, "[HELPER] Example button was null!"))
-                return null;
+            if (ErrorIfNull(exampleButton, "[HELPER] Example button was null!")) return null;
 
             var newButton = Object.Instantiate(exampleButton, parent, false);
             newButton.name = objectName;

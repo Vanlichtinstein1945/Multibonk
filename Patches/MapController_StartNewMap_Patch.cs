@@ -27,7 +27,7 @@ namespace Multibonk.Patches
             MapGenerator.seed = GameData.Seed;
             MyRandom.random = new ConsistentRandom(GameData.Seed);
 
-            if (Config.LogRunStartStats)
+            if (Config.LogRunStartStats || Config.VerboseHarmonyPatches)
                 MelonLogger.Msg($"[SNM Patch] Starting run mapData={GameData.MapData.eMap} stageData={GameData.StageData.name} mapTierIndex={GameData.MapTierIndex} challengeData={GameData.ChallengeData?.name} seed={GameData.Seed} selectedCharacter={GameData.ECharacter}");
         }
     }
