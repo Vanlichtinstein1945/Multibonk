@@ -17,7 +17,6 @@ using Multibonk.Networking;
 // TODO: Look into copying and creating a map choice menu for host in lobby ui
 // TODO: Find a way to get references to map genned prefabs
 // TODO: Find a way to grab all genned objects from map and pass to HostBeginInitBarrier
-// TODO: Change spawning remote players to using a copy of the player with .SetCharacter(CharacterData) called
 // TODO: Look into syncing enemies
 // TODO: Look into causing enemies to attract to all, not just local player
 // TODO: Look into syncing weapon attacks
@@ -113,13 +112,22 @@ namespace Multibonk
 
         private IEnumerator WaitAndBindLocal()
         {
-            yield return new WaitForSeconds(1f);
+            GameObject player = null;
+            int iter = 0;
+            while (player == null)
+            {
+                player = GameObject.Find("Player");
+                iter++;
+                yield return new WaitForSeconds(0.5f);
+            }
+            if (Config.VerboseSteamworks)
+                MelonLogger.Msg($"[MAIN] took {iter} iterations to find Player object.");
 
-            var player = Object.FindObjectOfType<PlayerRenderer>(true);
-            if (Helpers.ErrorIfNull(player, "[MAIN] No game object of type PlayerRenderer found!")) yield break;
+            var playerRend = player.GetComponentInChildren<PlayerRenderer>(true);
+            if (Helpers.ErrorIfNull(playerRend, "[MAIN] No game object of type PlayerRenderer found!")) yield break;
             var anim = player.GetComponentInChildren<Animator>();
             if (Helpers.ErrorIfNull(anim, "[MAIN] No game object of type Animator found!")) yield break;
-            var tf = player.transform.root;
+            var tf = player.transform;
 
             Networking.SteamNetworking.BindLocal(anim, tf, anim.transform);
 

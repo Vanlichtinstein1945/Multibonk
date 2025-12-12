@@ -124,12 +124,14 @@ namespace Multibonk
             var lobbyWindow = lobbyMenu.GetComponent<Window>();
             lobbyWindow.isFocused = false;
             lobbyWindow.allButtons.Clear();
-            lobbyWindow.allButtonsHashed.Clear();            
+            lobbyWindow.allButtonsHashed.Clear();
 
             // Creating character selection screen
+            var characterSelectionWindow = tabs.Find("Character").GetComponent<Window>();
             var chooseCharButtonOnClick = (UnityAction)(() =>
             {
-                MelonLogger.Msg("Open Choose Character Screen");
+                ui.GetComponent<MainMenu>().SetWindow(menu.gameObject);
+                characterSelectionWindow.FocusWindow();
             });
             var chooseCharButton = Helpers.CreateButtonFromExample(bPlay.gameObject, lobbyMenu.transform, "B_ChooseChar", "Choose Character", chooseCharButtonOnClick);
             lobbyWindow.allButtons.Add(chooseCharButton.GetComponent<MyButton>());
@@ -138,9 +140,11 @@ namespace Multibonk
             lobbyWindow.alwaysUseStartBtn = true;
 
             // Creating map selection screen
+            var mapSelectionWindow = tabs.Find("MapNew2").GetComponent<Window>();
             var chooseMapButtonOnClick = (UnityAction)(() =>
             {
-                MelonLogger.Msg("Open Choose Map Screen");
+                ui.GetComponent<MainMenu>().SetWindow(menu.gameObject);
+                mapSelectionWindow.FocusWindow();
             });
             var chooseMapButton = Helpers.CreateButtonFromExample(bPlay.gameObject, lobbyMenu.transform, "B_ChooseMap", "Choose Map", chooseMapButtonOnClick);
             lobbyWindow.allButtons.Add(chooseMapButton.GetComponent<MyButton>());

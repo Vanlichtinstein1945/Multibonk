@@ -74,7 +74,7 @@ namespace Multibonk.Networking
                 int n = SteamMatchmaking.GetNumLobbyMembers(lobby);
                 for (int i = 0; i < n; i++)
                 {
-                    var id = SteamMatchmaking.GetLobbyOwner(lobby);
+                    var id = SteamMatchmaking.GetLobbyMemberByIndex(lobby, i);
                     if (id == owner) continue;
                     _awaitingReady.Add(id.m_SteamID);
                 }
@@ -91,7 +91,7 @@ namespace Multibonk.Networking
             if (Config.VerboseSteamworks)
                 MelonLogger.Msg("[NET] Pausing game until clients are ready");
 
-            HostSendInit(objects);
+            MelonCoroutines.Start(WaitPeersThenSendInit(objects));
         }
 
         public static void ClientBeginInitBarrier()
@@ -107,6 +107,24 @@ namespace Multibonk.Networking
             public float px, py, pz;
             public float rx, ry, rz;
             public float sx, sy, sz;
+        }
+
+        private static System.Collections.IEnumerator WaitPeersThenSendInit(List<NetInitObject> objs)
+        {
+            float timeout = 5f;
+            while (timeout > 0f)
+            {
+                int connected = 0;
+                foreach (var kv in _peers)
+                    if (_awaitingReady.Contains(kv.Value.m_SteamID))
+                        connected++;
+
+                if (connected >= _awaitingReady.Count) break;
+
+                timeout -= Time.unscaledDeltaTime;
+                yield return null;
+            }
+            HostSendInit(objs);
         }
 
         private static void HostSendInit(List<NetInitObject> objs)
@@ -256,15 +274,13 @@ namespace Multibonk.Networking
         {
             PumpReceive();
 
-            if (_peers.Count != 0 || Config.VerboseLocalPlayer)
+            const float sendHz = 20f;
+            _sendAccum += Time.deltaTime;
+            if (_sendAccum >= 1f / sendHz)
             {
-                const float sendHz = 20f;
-                _sendAccum += Time.deltaTime;
-                if (_sendAccum >= 1f / sendHz)
-                {
-                    _sendAccum = 0f;
+                _sendAccum = 0f;
+                if (!_barrierActive)
                     TickSend();
-                }
             }
         }
 
@@ -300,7 +316,6 @@ namespace Multibonk.Networking
                 MelonLogger.Msg($"[NET] Sending local player anim: {bits}");
             }
 
-            if (_peers.Count == 0) return;
             if (IsHost) BroadcastUnreliable(buf, buf.Length);
             else SendToHostUnreliable(buf, buf.Length);
         }
@@ -378,7 +393,7 @@ namespace Multibonk.Networking
                     if (IsHost) break;
                     _barrierActive = false;
                     _expectedInitCount = 0;
-                    _pendingInit = null;
+                    _pendingInit?.Clear();
                     Time.timeScale = 1f;
                     if (Config.VerboseSteamworks)
                         MelonLogger.Msg("[NET] Starting game");
@@ -388,7 +403,7 @@ namespace Multibonk.Networking
                     if (IsHost) break;
                     _barrierActive = false;
                     _expectedInitCount = 0;
-                    _pendingInit = null;
+                    _pendingInit?.Clear();
                     Time.timeScale = 1f;
                     if (Config.VerboseSteamworks)
                         MelonLogger.Warning("[NET] Host aborted init sync");
@@ -398,7 +413,7 @@ namespace Multibonk.Networking
                     if (!IsHost) break;
                     var id = _peers[from];
                     _awaitingReady.Remove(id.m_SteamID);
-                    if (_barrierActive && _awaitingReady.Count == 0)
+                    if (_barrierActive && _awaitingReady.Count <= 0)
                         HostBroadcastStart();
                     break;
 
@@ -443,6 +458,10 @@ namespace Multibonk.Networking
             _pendingInit = new List<NetInitObject>(_expectedInitCount);
             if (Config.VerboseSteamworks)
                 MelonLogger.Msg($"[NET] Received InitGame header from host. Expecting to receive {_expectedInitCount} objects");
+            if (_expectedInitCount == 0)
+            {
+                ClientSendReady();
+            }
         }
 
         private static void HandleInitChunk(BinaryReader br)
@@ -525,15 +544,27 @@ namespace Multibonk.Networking
                 return;
             }
 
-            var root = new GameObject($"Remote_{id.m_SteamID}");
-            var go = Object.Instantiate(cd.prefab, root.transform, false);
-            var anim = go.GetComponent<Animator>();
+            var player = GameObject.Find("Player");
+            if (Helpers.ErrorIfNull(player, "[NET] No root game object named Player could be found!")) return;
+            var renderer = player.transform.Find("Renderer");
+            if (Helpers.ErrorIfNull(renderer, "[NET] No game object named Renderer could be found!")) return;
+            var root = new GameObject($"Remote_{id}");
+            var rRenderer = Object.Instantiate(renderer, root.transform, false)?.gameObject;
+            Helpers.DestroyAllChildren(rRenderer.transform);
+            var rRendPR = rRenderer.GetComponent<PlayerRenderer>();
+            rRendPR.SetCharacter(cd, null, new Vector3(0, 0, 0));
+            var anim = rRenderer.GetComponentInChildren<Animator>();
+            if (Helpers.ErrorIfNull(anim, "[NET] No game object of type Animator under rRenderer")) return;
+            rRendPR.animator = anim;
+            rRendPR.playerMovement = null;
+            rRendPR.renderer = rRenderer.GetComponentInChildren<SkinnedMeshRenderer>();
+            rRendPR.rendererObject = rRendPR.renderer.gameObject;
 
             var active = SceneManager.GetActiveScene();
             if (root.scene != active)
                 SceneManager.MoveGameObjectToScene(root, active);
 
-            _replicas[id] = new RemoteReplica { replica = root, animator = anim, posTrans = root.transform, rotTrans = go.transform };
+            BindRemote(id, root, anim, root.transform, anim.gameObject.transform);
 
             if (Config.VerboseSteamworks)
                 MelonLogger.Msg($"[NET] Created and bound remote player for {id}");
@@ -564,7 +595,11 @@ namespace Multibonk.Networking
         private static void ApplySnapshot(CSteamID id, short qx, short qy, short qz,
                                           short rx, short ry, short rz, Helpers.AnimBits bits)
         {
-            if (!_replicas.TryGetValue(id, out var rep) || rep.posTrans == null || rep.rotTrans == null) return;
+            if (!_replicas.TryGetValue(id, out var rep))
+            {
+                MelonLogger.Warning($"[NET] Replica not found for id={id}!");
+                return;
+            }
 
             var pos = new Vector3(qx / 100f, qy / 100f, qz / 100f);
             var euler = new Vector3(rx / 100f, ry / 100f, rz / 100f);
@@ -634,7 +669,7 @@ namespace Multibonk.Networking
                             MelonLogger.Msg("[NET] Host disconnected, returning to lobby");
                         _barrierActive = false;
                         _expectedInitCount = 0;
-                        _pendingInit.Clear();
+                        _pendingInit?.Clear();
                         Time.timeScale = 1f;
                         if (SceneManager.GetActiveScene().name != "MainMenu")
                             SceneManager.LoadScene("MainMenu");
